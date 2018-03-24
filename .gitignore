@@ -1,3 +1,5 @@
 .bundle
+.ruby-version
+.ruby-gemset
 /vendor/bundle
 Gemfile.lock

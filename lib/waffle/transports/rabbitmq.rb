@@ -18,28 +18,33 @@ module Waffle
           queue.bind(exchange, :key => flow)
         end
 
-        queue.subscribe do |message|
-          block.call(message[:delivery_details][:routing_key], encoder.decode(message[:payload]))
+        queue.subscribe(block: true) do |delivery_info, properties, payload|
+          block.call(delivery_info.routing_key, encoder.decode(payload))
         end
       end
 
       def connection_exceptions
-        [Bunny::ServerDownError, Bunny::ConnectionError, Errno::ECONNRESET]
+        [Bunny::TCPConnectionFailed, Errno::ECONNRESET]
+      end
+
+      def channel
+        @channel ||= @connection.create_channel
       end
 
       def exchange
-        @exchange ||= @bunny.exchange(config.options['exchange'] || EXCHANGE)
+        @exchange ||= channel.direct(config.options['exchange'] || EXCHANGE, durable: true)
       end
 
       def queue
-        @queue ||= @bunny.queue(config.options['queue'] || '', :durable => true, :auto_delete => true)
+        @queue ||= channel.queue(config.options['queue'] || '', durable: true, auto_delete: true)
       end
 
       def do_connect
         @exchange = nil
         @queue = nil
-        @bunny = Bunny.new(config.url)
-        @bunny.start
+        @channel = nil
+        @connection = Bunny.new(config.url)
+        @connection.start
       end
     end
   end
